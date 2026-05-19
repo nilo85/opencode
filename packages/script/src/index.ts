@@ -10,6 +10,8 @@ if (!expectedBunVersion) {
   throw new Error("packageManager field not found in root package.json")
 }
 
+// TODO: revert to `^${expectedBunVersion}` once nixpkgs updates bun to >=1.3.14
+// nixpkgs-unstable currently ships bun@1.3.13 (pkgs/by-name/bu/bun/package.nix)
 // relax version requirement
 const expectedBunVersionRange = `>=1.3.3`
 
