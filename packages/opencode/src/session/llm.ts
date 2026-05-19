@@ -9,6 +9,7 @@ import type { LLMClientService } from "@opencode-ai/llm/route"
 import { mergeDeep } from "remeda"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
+import { detectMessageHistoryRewrite } from "@/session/llm/history-rewrite-detector"
 import { Config } from "@/config/config"
 import { InstanceState } from "@/effect/instance-state"
 import type { Agent } from "@/agent/agent"
@@ -355,6 +356,8 @@ const live: Layer.Layer<
           provider: item,
           auth: info,
           llmClient,
+          sessionID: input.sessionID,
+          experimentalHistoryRewrite: flags.experimentalHistoryRewrite,
           isOpenaiOauth,
           system,
           messages,
@@ -449,6 +452,10 @@ const live: Layer.Layer<
                   if (args.type === "stream") {
                     // @ts-expect-error
                     args.params.prompt = ProviderTransform.message(args.params.prompt, input.model, options)
+                    if (flags.experimentalHistoryRewrite) {
+                      const report = detectMessageHistoryRewrite(input.sessionID, args.params.prompt)
+                      if (report) l.warn("history rewrite detected", { report })
+                    }
                   }
                   return args.params
                 },

@@ -1,7 +1,9 @@
 import type { Auth } from "@/auth"
 import type { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
+import { detectMessageHistoryRewrite } from "./history-rewrite-detector"
 import { errorMessage } from "@/util/error"
+import * as Log from "@opencode-ai/core/util/log"
 import { isRecord } from "@/util/record"
 import { asSchema, type ModelMessage, type Tool } from "ai"
 import { Effect } from "effect"
@@ -9,6 +11,8 @@ import * as Stream from "effect/Stream"
 import { tool as nativeTool, ToolFailure, type JsonSchema, type LLMEvent } from "@opencode-ai/llm"
 import type { LLMClientShape } from "@opencode-ai/llm/route"
 import { LLMNative } from "./native-request"
+
+const log = Log.create({ service: "session.llm.native-runtime" })
 
 export type RuntimeStatus =
   | { readonly type: "supported"; readonly apiKey: string; readonly baseURL?: string }
@@ -22,6 +26,8 @@ type StreamInput = {
   readonly provider: Provider.Info
   readonly auth: Auth.Info | undefined
   readonly llmClient: LLMClientShape
+  readonly sessionID: string
+  readonly experimentalHistoryRewrite: boolean
   readonly isOpenaiOauth: boolean
   readonly system: string[]
   readonly messages: ModelMessage[]
@@ -69,7 +75,14 @@ export function stream(input: StreamInput): StreamResult {
         apiKey: current.apiKey,
         baseURL: current.baseURL,
         system: input.isOpenaiOauth ? input.system : [],
-        messages: ProviderTransform.message(input.messages, input.model, input.providerOptions ?? {}),
+        messages: (() => {
+          const transformed = ProviderTransform.message(input.messages, input.model, input.providerOptions ?? {})
+          if (input.experimentalHistoryRewrite) {
+            const report = detectMessageHistoryRewrite(input.sessionID, transformed)
+            if (report) log.warn("history rewrite detected", { report })
+          }
+          return transformed
+        })(),
         toolChoice: input.toolChoice,
         temperature: input.temperature,
         topP: input.topP,

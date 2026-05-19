@@ -34,6 +34,7 @@ import { Tool } from "@/tool/tool"
 import { Permission } from "@/permission"
 import { SessionStatus } from "./status"
 import { LLM } from "./llm"
+import { clearHistory as clearHistoryRewrite } from "@/session/llm/history-rewrite-detector"
 import { Shell } from "@/shell/shell"
 import { ShellID } from "@/tool/shell/id"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
@@ -1301,6 +1302,7 @@ export const layer = Layer.effect(
               overflow: task.overflow,
             })
             if (result === "stop") break
+            clearHistoryRewrite(sessionID)
             continue
           }
 
