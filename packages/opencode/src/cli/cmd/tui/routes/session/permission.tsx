@@ -117,6 +117,7 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
   const sync = useSync()
   const [store, setStore] = createStore({
     stage: "permission" as PermissionStage,
+    patterns: [...props.request.always],
   })
   const pathFormatter = usePathFormatter()
 
@@ -139,41 +140,17 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
   return (
     <Switch>
       <Match when={store.stage === "always"}>
-        <Prompt
-          title="Always allow"
-          body={
-            <Switch>
-              <Match when={props.request.always.length === 1 && props.request.always[0] === "*"}>
-                <TextBody title={"This will allow " + props.request.permission + " until OpenCode is restarted."} />
-              </Match>
-              <Match when={true}>
-                <box paddingLeft={1} gap={1}>
-                  <text fg={theme.textMuted}>This will allow the following patterns until OpenCode is restarted</text>
-                  <box>
-                    <For each={props.request.always}>
-                      {(pattern) => (
-                        <text fg={theme.text}>
-                          {"- "}
-                          {pattern}
-                        </text>
-                      )}
-                    </For>
-                  </box>
-                </box>
-              </Match>
-            </Switch>
-          }
-          options={{ confirm: "Confirm", cancel: "Cancel" }}
-          escapeKey="cancel"
-          onSelect={(option) => {
-            setStore("stage", "permission")
-            if (option === "cancel") return
+        <AlwaysPrompt
+          patterns={store.patterns}
+          onConfirm={(patterns) => {
             void sdk.client.permission.reply({
               reply: "always",
               requestID: props.request.id,
+              patterns,
               workspace: project.workspace.current(),
             })
           }}
+          onCancel={() => setStore("stage", "permission")}
         />
       </Match>
       <Match when={store.stage === "reject"}>
@@ -438,6 +415,92 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
         })()}
       </Match>
     </Switch>
+  )
+}
+
+function AlwaysPrompt(props: {
+  patterns: string[]
+  onConfirm: (patterns: string[]) => void
+  onCancel: () => void
+}) {
+  let input: TextareaRenderable
+  const { theme } = useTheme()
+  const tuiConfig = useTuiConfig()
+
+  useBindings(() => ({
+    mode: OPENCODE_BASE_MODE,
+    commands: [
+      {
+        name: "app.exit",
+        title: "Cancel always allow",
+        category: "Permission",
+        run() {
+          props.onCancel()
+        },
+      },
+    ],
+    bindings: [
+      { key: "escape", desc: "Cancel always allow", group: "Permission", cmd: () => props.onCancel() },
+      ...tuiConfig.keybinds.get("app.exit"),
+      {
+        key: "return",
+        desc: "Confirm always allow",
+        group: "Permission",
+        cmd: () => {
+          const text = input?.plainText ?? ""
+          const edited = text.split("\n").map((p) => p.trim()).filter(Boolean)
+          props.onConfirm(edited.length > 0 ? edited : props.patterns)
+        },
+      },
+    ],
+  }))
+
+  return (
+    <box
+      backgroundColor={theme.backgroundPanel}
+      border={["left"]}
+      borderColor={theme.warning}
+      customBorderChars={SplitBorder.customBorderChars}
+    >
+      <box gap={1} paddingLeft={1} paddingRight={3} paddingTop={1} paddingBottom={1}>
+        <box flexDirection="row" gap={1} paddingLeft={1}>
+          <text fg={theme.warning}>{"△"}</text>
+          <text fg={theme.text}>Always allow</text>
+        </box>
+        <box paddingLeft={1}>
+          <text fg={theme.textMuted}>Edit patterns (one per line):</text>
+        </box>
+        <textarea
+          ref={(val: TextareaRenderable) => {
+            input = val
+            val.setText(props.patterns.join("\n"))
+          }}
+          focused
+          textColor={theme.text}
+          focusedTextColor={theme.text}
+          cursorColor={theme.primary}
+        />
+      </box>
+      <box
+        flexDirection="row"
+        flexShrink={0}
+        paddingTop={1}
+        paddingLeft={2}
+        paddingRight={3}
+        paddingBottom={1}
+        backgroundColor={theme.backgroundElement}
+        justifyContent="space-between"
+        alignItems="center"
+        gap={1}
+      >
+        <text fg={theme.text}>
+          enter <span style={{ fg: theme.textMuted }}>confirm</span>
+        </text>
+        <text fg={theme.text}>
+          esc <span style={{ fg: theme.textMuted }}>cancel</span>
+        </text>
+      </box>
+    </box>
   )
 }
 

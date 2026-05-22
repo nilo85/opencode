@@ -55,6 +55,7 @@ export type Reply = Schema.Schema.Type<typeof Reply>
 const reply = {
   reply: Reply,
   message: Schema.optional(Schema.String),
+  patterns: Schema.optional(Schema.Array(Schema.String)),
 }
 
 export const ReplyBody = Schema.Struct(reply).annotate({ identifier: "PermissionReplyBody" })
@@ -244,7 +245,8 @@ export const layer = Layer.effect(
       yield* Deferred.succeed(existing.deferred, undefined)
       if (input.reply === "once") return
 
-      for (const pattern of existing.info.always) {
+      const alwaysPatterns = input.patterns && input.patterns.length > 0 ? input.patterns : existing.info.always
+      for (const pattern of alwaysPatterns) {
         approved.push({
           permission: existing.info.permission,
           pattern,

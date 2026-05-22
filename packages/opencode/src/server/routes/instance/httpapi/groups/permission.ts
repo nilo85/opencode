@@ -9,10 +9,6 @@ import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware
 import { described } from "./metadata"
 
 const root = "/permission"
-const ReplyPayload = Schema.Struct({
-  reply: Permission.Reply,
-  message: Schema.optional(Schema.String),
-})
 
 export const PermissionApi = HttpApi.make("permission")
   .add(
@@ -31,7 +27,7 @@ export const PermissionApi = HttpApi.make("permission")
         HttpApiEndpoint.post("reply", `${root}/:requestID/reply`, {
           params: { requestID: PermissionID },
           query: WorkspaceRoutingQuery,
-          payload: ReplyPayload,
+          payload: Permission.ReplyBody,
           success: described(Schema.Boolean, "Permission processed successfully"),
           error: [HttpApiError.BadRequest, PermissionNotFoundError],
         }).annotateMerge(
